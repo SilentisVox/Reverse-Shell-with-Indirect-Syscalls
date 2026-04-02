@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "windows.h"
 
 #ifndef _NTREVERSE_H
 #define _NTREVERSE_H

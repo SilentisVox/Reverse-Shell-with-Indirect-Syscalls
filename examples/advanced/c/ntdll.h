@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "windows.h"
 #include "winsock2.h"
 
 // Simplified windows ntdll header file.
@@ -7,11 +7,26 @@
 #define _NTDLL_H
 #define NTDLL_H
 
-#define ZERO                            0
+#define GENERIC_READ                    0x80000000
+#define GENERIC_WRITE                   0x40000000
+#define SYNCHRONIZE                     0x00100000
 
-#ifndef NTSTATUS
-typedef LONG NTSTATUS;
-#endif
+#define FILE_SHARE_READ                 0x00000001
+#define FILE_SHARE_WRITE                0x00000002
+#define FILE_OPEN_IF                    0x00000003
+#define FILE_SYNCHRONOUS_IO_NONALERT    0x00000020
+
+#define PROCESS_CREATE_FLAGS_INHERIT_HANDLES    0x00000004
+#define THREAD_CREATE_FLAGS_NONE                0x00000000
+
+#define IOCTL_AFD_BIND                  0x12003
+#define IOCTL_AFD_CONNECT               0x12007
+
+#define PS_ATTRIBUTE_IMAGE              0x00000005
+#define PS_ATTRIBUTE_INPUT              0x00020000
+#define PS_ATTRIBUTE_IMAGE_NAME ((PS_ATTRIBUTE_IMAGE) | (PS_ATTRIBUTE_INPUT))
+
+#define NTSTATUS                        LONG
 
 #define NtCurrentConsole()              ((HANDLE) (LONG_PTR) -3)
 #define NtCurrentThread()               ((HANDLE) (LONG_PTR) -2)
@@ -59,7 +74,7 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS {
         UNICODE_STRING                  DllPath;
         UNICODE_STRING                  ImagePathName;
         UNICODE_STRING                  CommandLine;
-        PWCHAR                          Environment;
+        PWSTR                           Environment;
         ULONG                           StartingX;
         ULONG                           StartingY;
         ULONG                           CountX;
@@ -82,7 +97,7 @@ typedef struct _RTL_USER_PROCESS_PARAMETERS {
 } RTL_USER_PROCESS_PARAMETERS, *PRTL_USER_PROCESS_PARAMETERS;
 
 typedef struct _PS_CREATE_INFO {
-        SIZE_T                          Size;
+        ULONG_PTR                       Size;
         ULONG                           State;
         union {
                 struct {
@@ -140,10 +155,6 @@ typedef struct _PS_CREATE_INFO {
         };
 } PS_CREATE_INFO, *PPS_CREATE_INFO;
 
-#define PS_ATTRIBUTE_IMAGE              0x00000005
-#define PS_ATTRIBUTE_INPUT              0x00020000
-#define PS_ATTRIBUTE_IMAGE_NAME ((PS_ATTRIBUTE_IMAGE) | (PS_ATTRIBUTE_INPUT))
-
 typedef struct _PS_ATTRIBUTE {
         ULONG_PTR                       Attribute;
         ULONG_PTR                       Size;
@@ -151,19 +162,13 @@ typedef struct _PS_ATTRIBUTE {
                 ULONG_PTR               Value;
                 PVOID                   ValuePtr;
         };
-        PSIZE_T                         ReturnLength;
+        ULONG_PTR                       *ReturnLength;
 } PS_ATTRIBUTE, *PPS_ATTRIBUTE;
 
 typedef struct _PS_ATTRIBUTE_LIST {
-        SIZE_T                          TotalLength;
+        ULONG_PTR                       TotalLength;
         PS_ATTRIBUTE                    Attributes[1]; // actually variable.
 } PS_ATTRIBUTE_LIST, *PPS_ATTRIBUTE_LIST;
-
-#define PROCESS_CREATE_FLAGS_INHERIT_HANDLES                0x00000004
-#define THREAD_CREATE_FLAGS_NONE                            0x00000000
-
-#define FILE_OPEN_IF                    0x00000003
-#define FILE_SYNCHRONOUS_IO_NONALERT    0x00000020
 
 typedef struct _IO_STATUS_BLOCK {
         ULONG_PTR                       Information;
@@ -194,11 +199,8 @@ typedef struct _AFD_OPEN_PACKET_EA {
         UINT                            SocketType;
         UINT                            Protocol;
         UINT                            SizeOfTransportName;
-        LPVOID                          pAfdCreateContext;
+        PVOID                           pAfdCreateContext;
 } AFD_OPEN_PACKET_EA, *PAFD_OPEN_PACKET_EA;
-
-#define IOCTL_AFD_BIND                  0x12003
-#define IOCTL_AFD_CONNECT               0x12007
 
 typedef struct _AFD_BIND_SOCKET {
         UINT                            Flags;

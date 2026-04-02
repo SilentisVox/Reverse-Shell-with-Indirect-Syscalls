@@ -1,10 +1,10 @@
-SECTION         .DATA
+section         .data
 SYSTEM_SERVICE_NUMBER:  DD 0
 SYSCALL_ADDRESS:        DQ 0
 
-SECTION         .TEXT
-GLOBAL          SET_SYSCALL_ASM
-GLOBAL          RUN_SYSCALL_ASM
+section         .text
+global          SET_SYSCALL_ASM
+global          RUN_SYSCALL_ASM
 
 SET_SYSCALL_ASM:
         XOR     RAX,    RAX

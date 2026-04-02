@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "windows.h"
 #include "advanced.h"
 
 MODULE_CONFIG NtdllConfig = { 0 };
@@ -43,7 +43,7 @@ VOID GET_NTDLL_FUN(ULONG SymbolHash, PNTDLL_FUNCTION SymbolData) {
         UINT index;
 
         for (index = 0; index != NtdllConfig.NumberOfNames; index++) {
-                PCHAR SymbolName = (NtdllConfig.pModule + *(ULONG *) (NtdllConfig.ArrayOfNames + (index * 4)));
+                PCHAR SymbolName = (PCHAR) (NtdllConfig.pModule + *(ULONG *) (NtdllConfig.ArrayOfNames + (index * 4)));
 
                 if (ROR7_32(SymbolName) != SymbolHash)
                         continue;
@@ -56,7 +56,7 @@ VOID GET_NTDLL_FUN(ULONG SymbolHash, PNTDLL_FUNCTION SymbolData) {
         for (index = 0; index != 255; index++) {
                 ULONG CurrentPattern = *(ULONG_PTR *) (SymbolData->SyscallStub + index);
 
-                if ((*(ULONG *) (SymbolData->SyscallStub + index) & 0xFF0000FF) == 0x000000B8)
+                if ((*(ULONG *) (SymbolData->SyscallStub + index) & 0xFF0000FF) != 0x000000B8)
                         continue;
 
                 SymbolData->SystemServiceNumber = *(ULONG_PTR *) (SymbolData->SyscallStub + index + 1);
@@ -64,7 +64,7 @@ VOID GET_NTDLL_FUN(ULONG SymbolHash, PNTDLL_FUNCTION SymbolData) {
         }
 
         for (index = 0; index != 255; index++) {
-                if (*(USHORT *) (SymbolData->SyscallStub + index) == 0x050f)
+                if (*(USHORT *) (SymbolData->SyscallStub + index) != 0x050f)
                         continue;
 
                 SymbolData->SyscallInstruction = SymbolData->SyscallStub + index;

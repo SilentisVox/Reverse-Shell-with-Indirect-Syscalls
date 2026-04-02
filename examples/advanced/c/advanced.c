@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "windows.h"
 #include "advanced.h"
 #include "ntdll.h"
 #include "winsock2.h"
@@ -75,7 +75,7 @@ VOID INIT_NTDLL_API() {
 // being called. This stack space is used to save
 // any arguments that as may need be.
 
-VOID _start() {
+VOID main() {
         INIT_NTDLL_API();
 
         // Creating a socket requires requesting a file
