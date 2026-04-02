@@ -22,6 +22,7 @@ typedef struct _NTDLL_API {
         NTDLL_FUNCTION NtCreateFile;
         NTDLL_FUNCTION NtDeviceIoControlFile;
         NTDLL_FUNCTION NtCreateUserProcess;
+        NTDLL_FUNCTION NtExitProcess;
         NTDLL_FUNCTION RtlInitUnicodeString;
         NTDLL_FUNCTION RtlCreateProcessParametersEx;
 } NTDLL_API, *PNTDLL_API;

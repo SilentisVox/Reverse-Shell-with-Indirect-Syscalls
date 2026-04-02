@@ -28,12 +28,11 @@ ULONG ROR7_32(PCHAR SymbolName) {
         UINT hash       = 0;
         UINT index      = 0;
 
-        while (SymbolName[index] != 0) {
+        while (SymbolName[index]) {
                 hash    = ((hash >> 7) | (hash << (32 - 7)))    & 0xFFFFFFFF;
                 hash    = (hash + SymbolName[index])            & 0xFFFFFFFF;
                 index++;
         }
-
         return hash;
 }
 
@@ -44,30 +43,32 @@ VOID GET_NTDLL_FUN(ULONG SymbolHash, PNTDLL_FUNCTION SymbolData) {
         UINT index;
 
         for (index = 0; index != NtdllConfig.NumberOfNames; index++) {
-                PCHAR SymbolName = (PCHAR) (NtdllConfig.pModule + *(ULONG *) (NtdllConfig.ArrayOfNames + (index * 4)));
+                PCHAR SymbolName = (NtdllConfig.pModule + *(ULONG *) (NtdllConfig.ArrayOfNames + (index * 4)));
 
-                if (ROR7_32(SymbolName) == SymbolHash) {
-                        USHORT SymbolSlot       = *(USHORT *) (NtdllConfig.ArrayOfOrdinals + (index * 2));
-                        SymbolData->SyscallStub = (ULONG_PTR) (NtdllConfig.pModule + *(ULONG *) (NtdllConfig.ArrayOfAddresses + (SymbolSlot * 4)));
-                        break;
-                }
+                if (ROR7_32(SymbolName) != SymbolHash)
+                        continue;
+
+                USHORT SymbolSlot       = *(USHORT *) (NtdllConfig.ArrayOfOrdinals + (index * 2));
+                SymbolData->SyscallStub = (NtdllConfig.pModule + *(ULONG *) (NtdllConfig.ArrayOfAddresses + (SymbolSlot * 4)));
+                break;
         }
 
         for (index = 0; index != 255; index++) {
-                ULONG CurrentPattern = (ULONG) *(ULONG_PTR *) (SymbolData->SyscallStub + index);
+                ULONG CurrentPattern = *(ULONG_PTR *) (SymbolData->SyscallStub + index);
 
-                if ((CurrentPattern & 0xFF0000FF) == 0x000000B8) {
-                        ULONG SystemServiceNumber = (ULONG) *(ULONG_PTR *) (SymbolData->SyscallStub + index + 1);
-                        SymbolData->SystemServiceNumber = SystemServiceNumber;
-                        break;
-                }
+                if ((*(ULONG *) (SymbolData->SyscallStub + index) & 0xFF0000FF) == 0x000000B8)
+                        continue;
+
+                SymbolData->SystemServiceNumber = *(ULONG_PTR *) (SymbolData->SyscallStub + index + 1);
+                break;
         }
 
         for (index = 0; index != 255; index++) {
-                if ((USHORT) *(ULONG_PTR *) (SymbolData->SyscallStub + index) == 0x050f) {
-                        SymbolData->SyscallInstruction = SymbolData->SyscallStub + index;
-                        break;
-                }
+                if (*(USHORT *) (SymbolData->SyscallStub + index) == 0x050f)
+                        continue;
+
+                SymbolData->SyscallInstruction = SymbolData->SyscallStub + index;
+                break;
         }
 
         if (!SymbolData->SyscallInstruction)
