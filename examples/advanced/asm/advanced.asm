@@ -409,10 +409,9 @@ GET_NTTERMINATEPROCESS:
 ; GET_NTTERMINATETHREAD:
 ;         MOV     RCX,    QWORD   [RBP + 0x60]
 ;         MOV     RDX,    0x3ECF2582
+;         LEA     R8,     QWORD   [RBP + 0x48]
+;         LEA     R9,     QWORD   [RBP + 0x40]
 ;         CALL    FIND_SYSCALL
-;
-;         MOV     DWORD   [RBP + 0x48],   EAX
-;         MOV     QWORD   [RBP + 0x40],   RCX
 
 GET_NTCREATEFILE:
         MOV     RCX,    QWORD   [RBP + 0x70]
