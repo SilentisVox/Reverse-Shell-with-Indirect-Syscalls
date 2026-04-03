@@ -4,8 +4,11 @@
 #define _WINDOWS_H
 #define WINDOWS_H
 
-#define CONST                           const
+#ifndef __stdcall
 #define __stdcall
+#endif
+
+#define CONST                           const
 #define WINAPI                          __stdcall
 #define NTAPI                           __stdcall
 #define VOID                            void
