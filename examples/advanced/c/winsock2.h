@@ -40,6 +40,30 @@ typedef struct sockaddr_in {
         CHAR                            sin_zero[8];
 } SOCKADDR_IN, *PSOCKADDR_IN;
 
-// Must link against ws2_32 library.
+BOOL
+WINAPI
+WSAStartup(
+        SHORT                           wVersionRequested,
+        LPWSADATA                       lpWSAData
+);
+
+SOCKET
+WINAPI
+WSASocketA(
+        INT                             AddressFamily,
+        INT                             Type,
+        INT                             Protocol,
+        PVOID                           lpProtocolInfo,
+        UINT                            Group,
+        ULONG                           dwFlags
+);
+
+BOOL
+WINAPI
+connect(
+        SOCKET                          s,
+        PSOCKADDR_IN                    name,
+        INT                             namelen
+);
 
 #endif // _WINSOCK2_H

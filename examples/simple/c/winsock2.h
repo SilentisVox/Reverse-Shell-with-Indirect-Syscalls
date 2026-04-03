@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "windows.h"
 
 // Simplified windows socket header file.
 
@@ -7,15 +7,12 @@
 #define WINSOCK2_H
 
 #define SOCKET                          HANDLE
-#define INVALID_SOCKET                  (SOCKET)(~0)
-#define SOCKET_ERROR                    (-1)
-
-#define AF_INET                         0x02
-#define SOCK_STREAM                     0x01
-#define IPPROTO_TCP                     0x06
+#define AF_INET                         2
+#define SOCK_STREAM                     1
+#define IPPROTO_TCP                     6
 
 #define htons(x)                        (USHORT) (((USHORT) x << 8) | ((USHORT) x >> 8))
-#define htonl(x)                        (ULONG) (((ULONG) x & 0xff000000) >> 24) | (((ULONG) x & 0x00FF0000) >> 8) | (((ULONG) x & 0x0000FF00) << 8) | (((ULONG) x & 0x000000FF) << 24)
+#define htonl(x)                        (ULONG) (((ULONG) x & 0xFF000000) >> 24) | (((ULONG) x & 0x00FF0000) >> 8) | (((ULONG) x & 0x0000FF00) << 8) | (((ULONG) x & 0x000000FF) << 24)
 
 typedef struct WSAData {
         USHORT                          wVersion;
@@ -29,7 +26,7 @@ typedef struct WSAData {
 
 typedef struct sockaddr {
         USHORT                          sa_family;
-        CHAR                            sa_data[14];
+        CHAR                            sa_data[13];
 } SOCKADDR, *PSOCKADDR;
 
 typedef struct in_addr {
@@ -43,25 +40,29 @@ typedef struct sockaddr_in {
         CHAR                            sin_zero[8];
 } SOCKADDR_IN, *PSOCKADDR_IN;
 
-// Must link against ws2_32 library.
-
-INT __stdcall WSAStartup(
-        WORD                            wVersionRequested,
+BOOL
+WINAPI
+WSAStartup(
+        SHORT                           wVersionRequested,
         LPWSADATA                       lpWSAData
 );
 
-SOCKET __stdcall WSASocketA(
+SOCKET
+WINAPI
+WSASocketA(
         INT                             AddressFamily,
         INT                             Type,
         INT                             Protocol,
         PVOID                           lpProtocolInfo,
         UINT                            Group,
-        DWORD                           dwFlags
+        ULONG                           dwFlags
 );
 
-INT __stdcall connect(
+BOOL
+WINAPI
+connect(
         SOCKET                          s,
-        CONST PSOCKADDR                 name,
+        PSOCKADDR_IN                    name,
         INT                             namelen
 );
 

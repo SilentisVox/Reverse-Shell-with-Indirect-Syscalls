@@ -1,4 +1,4 @@
-#include <windows.h>
+#include "windows.h"
 #include "winsock2.h"
 
 // Windows ABI follows a standard calling convention.
