@@ -102,7 +102,7 @@ NtCreateFile(
 For the 2 handle modifications, `NtDeviceIoControlFile` is used.
 The call that I wanted to re-create specifically is "bind".
 For the most natural behavior, automatic address and port bind is best.
-The specific item to preserve is `AfdindSocket.dwFlags = 0x2`;
+The specific item to preserve is `AfdBindSocket.dwFlags = 0x2`;
 The value depicts automatic address/port binding.
 
 ```c
